@@ -2,439 +2,109 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class VoteOption:
+    code: str
+    label: str
+    result: str
+    clue: str
+    is_true_clue: bool = False
+
+
+@dataclass(frozen=True)
 class GameStage:
     id: int
+    room_name: str
     title: str
     hero_journey_stage: str
     story: str
-    valid_answers: list[str]
-    success_message: str
-    reward_item: str
+    key_item: str
+    options: list[VoteOption]
     hints: list[str]
 
 
-STAGES: list[GameStage] = [
-    GameStage(
-        id=1,
-        title="Mundo ordinario",
-        hero_journey_stage="Mundo ordinario",
-        story="""🕯️ El grupo estaba en una conversación normal de Telegram cuando, de pronto, todos los mensajes anteriores comenzaron a distorsionarse.
+@dataclass(frozen=True)
+class CaseProfile:
+    id: str
+    culprit: str
+    motive: str
+    method: str
+    decisive_clue: str
+    false_leads: list[str]
+    confession: str
+    final_options: list[VoteOption]
 
-Una frase aparece una y otra vez:
 
-'Lo cotidiano es la primera prisión del héroe.'
-
-En la pantalla veis cuatro palabras parpadeando:
-
-CASA - PUERTA - SOMBRA - LLAVE
-
-El Archivista susurra:
-
-'Todo viaje empieza cuando alguien se atreve a abrir algo.'
-
-¿Qué palabra representa el comienzo del viaje?""",
-        valid_answers=["PUERTA"],
-        success_message="""✅ La PUERTA aparece ante vosotros.
-
-No era una metáfora.
-
-Una puerta negra se abre dentro del propio chat.
-
-Habéis abandonado el mundo ordinario.""",
-        reward_item="🗝️ Llave del Umbral",
-        hints=[
-            "Pensad en algo que se abre.",
-            "No es un objeto cualquiera: marca el paso de un sitio a otro.",
-            "Todo viaje empieza cruzando una puerta.",
+CASE_PROFILES = [
+    CaseProfile(
+        id="elena",
+        culprit="Elena, la economista",
+        motive="Javi iba a denunciar la doble contabilidad que ella usaba para tapar deudas de la empresa familiar.",
+        method="Cogió la escopeta de postas durante el apagón, disparó desde el pasillo de servicio y devolvió el arma limpia a medias.",
+        decisive_clue="El libro mayor tenía una página arrancada, pero el calco quedó marcado en la hoja siguiente.",
+        false_leads=["Víctor discutió con Javi.", "Irina preguntó por la herencia.", "Clara tenía una llave del despacho."],
+        confession="Elena calculó mentalmente el coste de una defensa penal antes de pedir agua. Mala señal, buen Excel.",
+        final_options=[
+            VoteOption("A", "Acusar a Elena por la contabilidad oculta", "", "", True),
+            VoteOption("B", "Acusar a Víctor por la venta de la empresa", "", ""),
+            VoteOption("C", "Acusar a Irina por la herencia", "", ""),
         ],
     ),
-    GameStage(
-        id=2,
-        title="La llamada a la aventura",
-        hero_journey_stage="Llamada a la aventura",
-        story="""📜 El Archivista os entrega un mensaje cifrado:
-
-OD OODYH HV PHQWH
-
-Debajo aparece una nota:
-
-'El Bucle Negro desplaza la verdad tres pasos hacia delante.
-Para encontrarla, caminad tres pasos hacia atrás.'
-
-Descifrad el mensaje.""",
-        valid_answers=["MENTE", "LA LLAVE ES MENTE"],
-        success_message="""✅ Habéis recuperado la primera verdad:
-
-'La llave es mente.'
-
-El Archivista asiente.
-
-'No se escapa con fuerza. Se escapa entendiendo.'""",
-        reward_item="🧠 Llave de la Mente",
-        hints=[
-            "Es un cifrado clásico.",
-            "Cada letra se ha desplazado tres posiciones.",
-            "OD significa LA.",
+    CaseProfile(
+        id="victor",
+        culprit="Víctor, el socio bizco",
+        motive="Javi descubrió que Víctor negociaba vender la empresa familiar a espaldas de todos.",
+        method="Preparó la galería, esperó a Javi y aprovechó la tormenta para confundir el disparo con un trueno.",
+        decisive_clue="La mirilla del pasillo demostraba que Víctor pudo vigilar la biblioteca desde la galería.",
+        false_leads=["Elena ocultaba documentos.", "Don Anselmo cambió el testamento.", "Ramiro mintió sobre su ronda."],
+        confession="Víctor intentó mirar indignado a todos a la vez. Por una vez, su estrabismo no fue coartada suficiente.",
+        final_options=[
+            VoteOption("A", "Acusar a Don Anselmo por la herencia", "", ""),
+            VoteOption("B", "Acusar a Víctor por la venta secreta", "", "", True),
+            VoteOption("C", "Acusar a Clara por la llave perdida", "", ""),
         ],
     ),
-    GameStage(
-        id=3,
-        title="Rechazo de la llamada",
-        hero_journey_stage="Rechazo de la llamada",
-        story="""🌫️ Una niebla cubre el Archivo.
-
-El Bucle Negro habla por primera vez:
-
-'Podéis volver atrás. Nadie os obligó a entrar. Cerrad Telegram, olvidad esta historia y estaréis a salvo.'
-
-Aparecen tres caminos:
-
-1. VOLVER
-2. ESPERAR
-3. AVANZAR
-
-Pero el suelo muestra esta inscripción:
-
-'El héroe no es quien no teme, sino quien camina con miedo.'
-
-¿Qué decisión debéis tomar?""",
-        valid_answers=["AVANZAR", "VALOR"],
-        success_message="""✅ Elegís avanzar.
-
-La niebla retrocede.
-
-El Bucle Negro no desaparece, pero por primera vez parece dudar.""",
-        reward_item="🔥 Valor",
-        hints=[
-            "El héroe puede tener miedo, pero no se queda quieto.",
-            "No hay que volver atrás.",
-            "La decisión correcta es seguir adelante.",
+    CaseProfile(
+        id="irina",
+        culprit="Irina, la mujer extranjera de Don Anselmo",
+        motive="Javi encontró documentos que podían anular su parte de la herencia.",
+        method="Entró por la capilla, dejó barro rojo y disparó con la escopeta de postas antes de esconder la llave bajo el reclinatorio.",
+        decisive_clue="El barro rojo de la capilla apareció en el dobladillo del abrigo de Irina.",
+        false_leads=["Elena tenía facturas alteradas.", "Víctor compró cartuchos.", "Don Anselmo cambió el testamento."],
+        confession="Irina sonrió con una calma tan cara que en el pueblo la confundieron con educación. No lo era.",
+        final_options=[
+            VoteOption("A", "Acusar a Elena por las facturas", "", ""),
+            VoteOption("B", "Acusar a Ramiro por la llave de servicio", "", ""),
+            VoteOption("C", "Acusar a Irina por la herencia anulada", "", "", True),
         ],
     ),
-    GameStage(
-        id=4,
-        title="Encuentro con el mentor",
-        hero_journey_stage="Encuentro con el mentor",
-        story="""🧙 El Archivista toma forma.
-
-No es una persona. Es una voz hecha de libros, mapas y mensajes perdidos.
-
-'Todo héroe necesita tres cosas: memoria, valor y unión.'
-
-Os entrega una tabla incompleta:
-
-SOL = 1
-LUNA = 2
-RÍO = 3
-MONTAÑA = 4
-
-Pero el orden correcto de los sellos se ha perdido.
-
-Pistas:
-
-- El Sol abre el camino.
-- El Río fluye justo después del Sol.
-- La Luna cierra la noche.
-- La Montaña queda entre el Río y la Luna.
-
-Escribid el orden correcto de los cuatro sellos.""",
-        valid_answers=["SOL RIO MONTAÑA LUNA", "SOL RÍO MONTAÑA LUNA"],
-        success_message="""✅ Los sellos se iluminan en orden:
-
-☀️ SOL
-🌊 RÍO
-⛰️ MONTAÑA
-🌙 LUNA
-
-El Archivista os entrega el Mapa Interior.""",
-        reward_item="🗺️ Mapa del Archivo",
-        hints=[
-            "El Sol va primero.",
-            "El Río va justo después del Sol.",
-            "La Montaña queda entre el Río y la Luna.",
+    CaseProfile(
+        id="ramiro",
+        culprit="Ramiro, el guarda nocturno",
+        motive="Ramiro era el hijo no reconocido de Don Anselmo y Javi quería expulsarlo de la finca antes de que reclamara nada.",
+        method="Usó su llave maestra, cogió la escopeta de postas y disparó desde el acceso de servicio de la biblioteca.",
+        decisive_clue="La llave maestra de Ramiro tenía cera de la biblioteca pegada en los dientes.",
+        false_leads=["Víctor dejó huellas en la galería.", "Clara recibió una transferencia.", "Don Anselmo ocultó la carta."],
+        confession="Ramiro dijo que solo quería justicia. Lo dijo con la escopeta demasiado bien limpiada para resultar poético.",
+        final_options=[
+            VoteOption("A", "Acusar a Ramiro por la carta de filiación", "", "", True),
+            VoteOption("B", "Acusar a Don Anselmo por ocultar su pasado", "", ""),
+            VoteOption("C", "Acusar a Víctor por el negocio fallido", "", ""),
         ],
     ),
-    GameStage(
-        id=5,
-        title="Cruce del umbral",
-        hero_journey_stage="Cruce del umbral",
-        story="""🚪 Llegáis a la Primera Gran Puerta.
-
-No tiene cerradura, solo una frase:
-
-'Para entrar, debes saber qué llevas contigo.'
-
-Inventario actual:
-
-🗝️ Llave del Umbral
-🧠 Llave de la Mente
-🔥 Valor
-🗺️ Mapa del Archivo
-
-La puerta pregunta:
-
-'No soy objeto, pero abro caminos.
-No soy fuerza, pero vence al miedo.
-No soy una persona, pero une al grupo.'
-
-¿Qué soy?""",
-        valid_answers=["CONFIANZA"],
-        success_message="""✅ La palabra CONFIANZA atraviesa la puerta.
-
-El grupo cruza el umbral.
-
-A partir de ahora, no sois visitantes.
-
-Sois la Compañía de las Doce Llaves.""",
-        reward_item="🤝 Llave de la Confianza",
-        hints=[
-            "No es algo físico.",
-            "Tiene que ver con creer en los demás.",
-            "Sin ella, un grupo se rompe.",
-        ],
-    ),
-    GameStage(
-        id=6,
-        title="Pruebas, aliados y enemigos",
-        hero_journey_stage="Pruebas, aliados y enemigos",
-        story="""⚔️ Entráis en la Galería de las Pruebas.
-
-Tres estatuas bloquean el paso.
-
-La primera dice:
-'Tengo ciudades, pero no casas.'
-
-La segunda dice:
-'Tengo montañas, pero no árboles.'
-
-La tercera dice:
-'Tengo ríos, pero no agua.'
-
-¿Qué soy?""",
-        valid_answers=["MAPA"],
-        success_message="""✅ La respuesta es MAPA.
-
-El Mapa del Archivo se despliega solo y revela una ruta oculta.""",
-        reward_item="🧭 Brújula de las Decisiones",
-        hints=[
-            "No penséis en algo vivo.",
-            "Sirve para orientarse.",
-            "Representa lugares, pero no los contiene de verdad.",
-        ],
-    ),
-    GameStage(
-        id=7,
-        title="El enemigo se muestra",
-        hero_journey_stage="Pruebas, aliados y enemigos",
-        story="""🕳️ El Bucle Negro infecta el chat.
-
-Aparecen mensajes repetidos:
-
-MIEDO MIEDO MIEDO
-DUDA DUDA DUDA
-PRISA PRISA PRISA
-EGO EGO EGO
-
-El Archivista grita:
-
-'El enemigo no siempre está fuera. A veces bloquea al grupo desde dentro.'
-
-Para romper el bucle debéis elegir la palabra contraria a cada bloqueo:
-
-MIEDO = ?
-DUDA = ?
-PRISA = ?
-EGO = ?
-
-Escribid las cuatro palabras en orden.""",
-        valid_answers=["VALOR CONFIANZA CALMA EQUIPO"],
-        success_message="""✅ El bucle se rompe.
-
-MIEDO se transforma en VALOR.
-DUDA se transforma en CONFIANZA.
-PRISA se transforma en CALMA.
-EGO se transforma en EQUIPO.""",
-        reward_item="🛡️ Escudo del Equipo",
-        hints=[
-            "Buscad lo contrario de cada palabra negativa.",
-            "La última palabra tiene que ver con no actuar solo.",
-            "MIEDO se vence con VALOR.",
-        ],
-    ),
-    GameStage(
-        id=8,
-        title="Acercamiento a la cueva profunda",
-        hero_journey_stage="Acercamiento a la cueva profunda",
-        story="""🕯️ Llegáis a la Cámara del Silencio.
-
-En el centro hay una inscripción:
-
-'No se puede derrotar al Bucle Negro con una sola voz.'
-
-El bot envía cuatro fragmentos:
-
-Fragmento A: LA
-Fragmento B: UNION
-Fragmento C: ABRE
-Fragmento D: EL CENTRO
-
-Ordenad los fragmentos para formar la frase correcta.""",
-        valid_answers=["LA UNION ABRE EL CENTRO", "LA UNIÓN ABRE EL CENTRO"],
-        success_message="""✅ La Cámara del Silencio se abre.
-
-Por primera vez veis el núcleo del Archivo.
-
-El Bucle Negro no está destruyendo el Archivo.
-
-Lo está encerrando en una repetición infinita.""",
-        reward_item="🔮 Cristal del Centro",
-        hints=[
-            "La frase empieza por LA.",
-            "El sujeto de la frase es LA UNIÓN.",
-            "La frase completa explica qué abre el centro.",
-        ],
-    ),
-    GameStage(
-        id=9,
-        title="Prueba suprema",
-        hero_journey_stage="Prueba suprema",
-        story="""🖤 El Bucle Negro aparece.
-
-'No podéis escapar. Todo grupo falla por lo mismo: unos hablan, otros callan, otros se rinden.'
-
-El núcleo muestra una ecuación simbólica:
-
-MENTE + VALOR + CONFIANZA + EQUIPO = ?
-
-El Archivista dice:
-
-'Esta no es una suma matemática. Es lo que nace cuando el grupo actúa como uno.'
-
-¿Qué palabra completa la ecuación?""",
-        valid_answers=["HEROE", "HÉROE"],
-        success_message="""✅ El núcleo reconoce la respuesta:
-
-HÉROE.
-
-Pero no señala a una persona.
-
-Señala al grupo entero.""",
-        reward_item="⚔️ Llave del Héroe",
-        hints=[
-            "No es una operación matemática.",
-            "La respuesta tiene que ver con el viaje que estáis viviendo.",
-            "No hay un único protagonista: el grupo entero lo es.",
-        ],
-    ),
-    GameStage(
-        id=10,
-        title="Recompensa",
-        hero_journey_stage="Recompensa",
-        story="""✨ El Bucle Negro cae de rodillas.
-
-El Archivista os entrega la Llave Maestra, pero está incompleta.
-
-Tiene grabadas seis marcas:
-
-PUERTA
-MENTE
-VALOR
-CONFIANZA
-MAPA
-HEROE
-
-La Llave Maestra necesita una última palabra.
-
-Una palabra que explique por qué habéis llegado hasta aquí.
-
-No es ganar.
-No es escapar.
-No es competir.
-
-Es hacerlo juntos.
-
-¿Qué palabra falta?""",
-        valid_answers=["UNION", "UNIÓN"],
-        success_message="""✅ La Llave Maestra se completa.
-
-Pero el Archivo empieza a derrumbarse.
-
-Aún falta salir.""",
-        reward_item="🗝️ Llave Maestra de la Unión",
-        hints=[
-            "No se trata de ganar individualmente.",
-            "Tiene que ver con hacerlo juntos.",
-            "La palabra puede escribirse con o sin tilde.",
-        ],
-    ),
-    GameStage(
-        id=11,
-        title="Camino de regreso",
-        hero_journey_stage="Camino de regreso",
-        story="""🚨 El Archivo se colapsa.
-
-Tenéis que activar la salida escribiendo las palabras clave en el orden en que fueron descubiertas.
-
-Recordad vuestro camino.
-
-Formato esperado:
-
-PALABRA1 PALABRA2 PALABRA3 PALABRA4 PALABRA5 PALABRA6""",
-        valid_answers=[
-            "PUERTA MENTE AVANZAR CONFIANZA MAPA HEROE",
-            "PUERTA MENTE VALOR CONFIANZA MAPA HEROE",
-            "PUERTA MENTE AVANZAR CONFIANZA MAPA HÉROE",
-            "PUERTA MENTE VALOR CONFIANZA MAPA HÉROE",
-        ],
-        success_message="""✅ La salida se abre.
-
-Corréis hacia la última puerta mientras el Archivo se reconstruye a vuestro alrededor.
-
-El Bucle Negro lanza una última pregunta.""",
-        reward_item="🚪 Salida del Archivo",
-        hints=[
-            "La primera palabra era PUERTA.",
-            "La segunda estaba en el mensaje cifrado.",
-            "Recordad las palabras clave de las primeras pruebas.",
-        ],
-    ),
-    GameStage(
-        id=12,
-        title="Resurrección y decisión final",
-        hero_journey_stage="Resurrección del héroe",
-        story="""🖤 El Bucle Negro os ofrece un trato:
-
-'Puedo dejar salir a una sola persona ahora mismo.
-El resto quedará atrapado.
-Elegid.'
-
-Aparecen dos opciones:
-
-1. SALVARME
-2. UNIR
-
-El Archivista susurra:
-
-'El héroe verdadero no regresa solo con el premio. Regresa con el elixir para todos.'
-
-¿Qué elegís?""",
-        valid_answers=["UNIR"],
-        success_message="""🌟 Habéis elegido UNIR.
-
-El Bucle Negro se rompe.
-
-No porque lo hayáis destruido, sino porque habéis rechazado jugar con sus reglas.
-
-El Archivo queda libre.
-
-Las Doce Llaves vuelven a brillar.
-
-Habéis completado el viaje del héroe.""",
-        reward_item="🌟 Elixir del Archivo",
-        hints=[
-            "No se trata de salvarse solo.",
-            "El viaje del héroe termina regresando con algo para todos.",
-            "La opción correcta no es SALVARME.",
-        ],
-    ),
+]
+
+
+STAGES = [
+    GameStage(1, "Vestíbulo del Archivo", "La llegada bajo la tormenta", "Mundo ordinario", "⛈️ Llegáis a la mansión Valcárcel. Javi, heredero de la casa, ha aparecido muerto en la biblioteca por un disparo de escopeta de postas. En el vestíbulo hay tres rastros iniciales.", "🗝️ Llave de hierro del Salón", [VoteOption("A", "El paraguas mojado sin iniciales", "Encontráis barro rojo en el puño.", "Barro rojo de la capilla", True), VoteOption("B", "El recibo de taxi arrugado", "Parece incriminar a Elena, pero la hora no encaja.", "Recibo con hora dudosa"), VoteOption("C", "La bandeja de copas", "Una copa tiene carmín y poco más.", "Copa con carmín")], ["El barro viaja.", "No todo viene del camino principal.", "El color importará."]),
+    GameStage(2, "Salón principal", "Los invitados empiezan a sudar", "Llamada a la aventura", "🕯️ En el salón, la familia reparte el duelo con codazos. Elena calcula, Víctor mira raro, Clara calla y Don Anselmo exige dignidad.", "🗝️ Llave pequeña del Despacho", [VoteOption("A", "Interrogar a Elena sobre las cuentas", "Admite que Javi pidió el libro mayor.", "Javi pidió el libro mayor", True), VoteOption("B", "Presionar a Don Anselmo", "Confiesa que cambió el testamento.", "Testamento cambiado"), VoteOption("C", "Observar a Clara", "Está nerviosa, agotada y poco concluyente.", "Nervios de Clara")], ["El dinero habla.", "Javi pidió documentos.", "Buscad papeles."]),
+    GameStage(3, "Despacho de Javi", "El heredero tenía enemigos archivados", "Rechazo de la llamada", "📚 El despacho está demasiado ordenado. Hay una caja de cartas, un portátil sin batería y recortes del periódico local.", "🗝️ Llave latonada del Pasillo de Retratos", [VoteOption("A", "Abrir la caja de correspondencia", "Halláis una carta sobre un hijo no reconocido.", "Carta de filiación de Ramiro", True), VoteOption("B", "Forzar el portátil", "Aparece una foto borrosa de Víctor.", "Foto borrosa de Víctor"), VoteOption("C", "Revisar recortes", "Irina aparece en una vieja escuela de azafatas.", "Recorte sobre Irina")], ["La sangre también escribe.", "Una carta pesa más que una foto.", "El secreto tiene firma antigua."]),
+    GameStage(4, "Pasillo de retratos", "La familia mira desde la pared", "Encuentro con el mentor", "🖼️ Los retratos juzgan con más entusiasmo que pruebas. Hay un marco torcido, cera en el suelo y una puerta disimulada.", "🗝️ Llave oxidada de la Galería", [VoteOption("A", "Mover el retrato torcido", "Descubrís una mirilla hacia la biblioteca.", "Mirilla hacia la biblioteca", True), VoteOption("B", "Seguir la cera del suelo", "Conduce hacia la capilla.", "Gotas de cera"), VoteOption("C", "Escuchar tras la puerta", "Víctor discute con alguien.", "Víctor nervioso")], ["Alguien pudo ver sin ser visto.", "El pasillo conecta con el crimen.", "Una mirilla rompe coartadas."]),
+    GameStage(5, "Galería acristalada", "El trueno perfecto", "Cruce del umbral", "🌩️ Desde la galería se ve la biblioteca y la tormenta suena bastante fuerte para tapar un disparo.", "🗝️ Llave de bronce del Cuarto de Caza", [VoteOption("A", "El pestillo manipulado", "El cierre fue alterado antes del apagón.", "Pestillo preparado antes del crimen", True), VoteOption("B", "La colilla", "Pertenece a Don Anselmo.", "Colilla de Don Anselmo"), VoteOption("C", "La pisada", "Es una bota común de campo.", "Pisada común")], ["Se prepara antes.", "No confundáis vicio con culpa.", "Un pestillo también declara."]),
+    GameStage(6, "Cuarto de caza", "La escopeta y otras tradiciones", "Pruebas, aliados y enemigos", "🔫 La escopeta de postas ha sido usada y devuelta. Alguien limpió con prisa.", "🗝️ Llave pesada de la Cocina", [VoteOption("A", "El paño escondido", "Tiene aceite y una fibra azul.", "Fibra azul en el paño", True), VoteOption("B", "Los cartuchos", "Víctor los compró días atrás.", "Cartuchos comprados por Víctor"), VoteOption("C", "La vitrina", "No fue forzada.", "Vitrina abierta con llave")], ["La limpieza deja rastro.", "Comprar no es disparar.", "Buscad conexión con persona."]),
+    GameStage(7, "Cocina de servicio", "Donde se cuece la coartada", "El enemigo se muestra", "🍲 La cocina está despierta. Hay un reloj parado, una lista de cena y una puerta de servicio.", "🗝️ Llave ennegrecida de la Bodega", [VoteOption("A", "Comparar el reloj con el apagón", "El reloj se paró cinco minutos antes del supuesto disparo.", "Hora real alterada", True), VoteOption("B", "Leer la lista de cena", "Javi cenó poco, pero no fue veneno.", "Cena incompleta"), VoteOption("C", "Interrogar a la cocinera", "Confirma que todos mienten con horarios distintos.", "Testimonio confuso")], ["La hora oficial puede ser teatro.", "El disparo no fue cuando dicen.", "Un reloj parado habla."]),
+    GameStage(8, "Bodega", "Barricas, deudas y verdades", "Acercamiento a la cueva profunda", "🍷 La bodega guarda vinos viejos y secretos peores. Hay un escondite en una barrica.", "🗝️ Llave fría de la Capilla", [VoteOption("A", "Abrir el escondite de la barrica", "Encontráis copias de facturas manipuladas.", "Facturas manipuladas", True), VoteOption("B", "Raspar el barro seco", "Es parecido al del vestíbulo.", "Barro con cal"), VoteOption("C", "Revisar botellas apartadas", "Hay una etiqueta falsa.", "Etiqueta falsa")], ["La empresa deja huellas.", "Las facturas también matan.", "Buscad papeles."]),
+    GameStage(9, "Capilla familiar", "Donde todos rezan por coartada", "Prueba suprema", "⛪ Bajo el reclinatorio hay arañazos recientes. El barro rojo mancha una losa.", "🗝️ Llave plateada del Dormitorio", [VoteOption("A", "Levantar el reclinatorio", "Halláis la marca donde se escondió una llave.", "Llave escondida en la capilla", True), VoteOption("B", "Analizar la vela", "Se apagó durante el apagón.", "Vela apagada"), VoteOption("C", "Examinar la losa", "El barro rojo confirma paso reciente.", "Barro rojo reciente")], ["La capilla fue paso.", "Mirad donde se arrodillan.", "Una llave estuvo aquí."]),
+    GameStage(10, "Dormitorio de Don Anselmo", "El teatro del patriarca", "Recompensa", "🛏️ El cuarto de Don Anselmo huele a colonia fuerte y decisiones débiles. Hay testamento, medicación y una foto antigua.", "🗝️ Llave dorada del Archivo Familiar", [VoteOption("A", "El borrador del testamento", "Javi iba a heredar menos de lo que creía.", "Testamento recortado", True), VoteOption("B", "La medicación", "Don Anselmo no estaba para correr con una escopeta.", "Medicación del padre"), VoteOption("C", "La foto doblada", "Aparece Ramiro de niño junto a la finca.", "Foto antigua de Ramiro")], ["Herencia no siempre significa padre.", "Un testamento cambia relaciones.", "Dinero y sangre se mezclan."]),
+    GameStage(11, "Archivo familiar", "El papel nunca olvida", "Camino de regreso", "🗄️ En el archivo hay libros mayores, escrituras, cartas y una caja con sellos viejos.", "🗝️ Llave negra de la Biblioteca", [VoteOption("A", "Comparar libro mayor y facturas", "Las cifras no cuadran.", "Doble contabilidad", True), VoteOption("B", "Revisar escrituras", "Irina no figura como propietaria directa.", "Escritura sin Irina"), VoteOption("C", "Leer cartas antiguas", "Confirman secretos de sangre.", "Cartas de familia")], ["Ordenad dinero, tiempo y arma.", "La última llave está entre documentos.", "No todo secreto es asesinato."]),
+    GameStage(12, "Biblioteca", "La acusación final", "Resurrección del héroe", "📖 Volvéis a la biblioteca. Sobre la mesa están la escopeta, las llaves y una familia que preferiría vender la mansión antes que decir la verdad.", "🗝️ Llave final de la Verdad", [], ["Ordenad móvil, acceso y oportunidad.", "Una pista falsa señala emoción; una real señala mecanismo.", "La acusación correcta explica por qué murió Javi."]),
 ]
