@@ -1,6 +1,8 @@
 # El Archivo de las Doce Llaves
 
-Bot de Telegram para jugar un escape room narrativo en grupo. El bot actúa como narrador y director de juego, guarda el progreso en SQLite y sigue la estructura del viaje del héroe.
+Bot de Telegram para jugar un escape room narrativo en grupo. El bot actúa como narrador y director de juego, guarda el progreso en SQLite y plantea un crimen en una mansión familiar española de pueblo rústico.
+
+El caso base: Javi, heredero de la familia Valcárcel, aparece muerto en la biblioteca durante una noche de tormenta. Los jugadores son detectives externos y deben recorrer 12 habitaciones, encontrar llaves físicas, seguir pistas, esquivar pistas falsas y votar por mayoría hasta acusar al culpable.
 
 ## Requisitos
 
@@ -25,6 +27,7 @@ comenzar - Iniciar la fase 1
 estado - Ver el estado de la partida
 inventario - Ver objetos conseguidos
 pista - Pedir una pista
+votar - Votar una opción de investigación
 resolver - Resolver la fase actual
 reset_escape - Reiniciar la partida
 ranking - Ver ranking o resultado final
@@ -115,24 +118,22 @@ El bot intentará crear:
 
 ```text
 Vestíbulo del Archivo
-Sala 01 - Mundo ordinario
-Sala 02 - Llamada a la aventura
-Sala 03 - Rechazo de la llamada
-Sala 04 - Encuentro con el mentor
-Sala 05 - Cruce del umbral
-Sala 06 - Pruebas y aliados
-Sala 07 - El Bucle Negro
-Sala 08 - Cámara del Silencio
-Sala 09 - Prueba suprema
-Sala 10 - Recompensa
-Sala 11 - Camino de regreso
-Sala 12 - Decisión final
-Ranking - Salón de los Héroes
+Salón principal
+Despacho de Javi
+Pasillo de retratos
+Galería acristalada
+Cuarto de caza
+Cocina de servicio
+Bodega
+Capilla familiar
+Dormitorio de Don Anselmo
+Archivo familiar
+Biblioteca
 ```
 
 ## Iniciar una partida
 
-Dentro del grupo:
+Puedes usar comandos:
 
 ```text
 /start_escape
@@ -140,16 +141,23 @@ Dentro del grupo:
 /comenzar
 ```
 
-Durante la partida:
+Pero la forma recomendada es hablarle al bot en lenguaje natural:
 
 ```text
-/resolver respuesta
-/pista
-/estado
-/inventario
+abrir caso
+me uno
+empezamos
+investiguemos el paraguas mojado
+revisar la vitrina
+acuso a Elena
+quiero una pista
+cómo vamos
+qué llaves tenemos
 ```
 
-El bot no permite abrir una segunda partida activa en el mismo grupo.
+El bot mantiene comandos como respaldo (`/votar A`, `/pista`, `/estado`), pero la partida está pensada para jugarse conversando. Cada sala propone tres opciones de investigación. Los jugadores unidos votan hablando con el bot y la opción que alcanza mayoría simple desbloquea una llave física y la siguiente habitación.
+
+La solución del crimen cambia de una partida a otra. El bot elige al azar culpable, móvil, pista decisiva y falsas pistas compatibles con la historia.
 
 ## Reiniciar una partida
 
@@ -186,6 +194,10 @@ SQLite guarda una fila por chat con:
 - `finished_at`
 - `completed`
 - `score`
+- `case_id`
+- `votes`
+- `discovered_clues`
+- `false_clues`
 
 Si el bot se reinicia, la partida continúa desde el último estado guardado.
 
@@ -197,6 +209,8 @@ Penalizaciones:
 
 - Cada pista usada: -5 puntos.
 - Cada respuesta incorrecta: -2 puntos.
+- Cada pista falsa seguida: -3 puntos.
+- Acusación final incorrecta: -15 puntos.
 - Superar 60 minutos: -20 puntos al finalizar.
 
 Bonificaciones:
@@ -213,21 +227,21 @@ Rangos:
 - 60 a 79: Aprendices del Umbral.
 - Menos de 60: Atrapados parcialmente en el Bucle.
 
-## Modificar o añadir fases
+## Modificar o añadir salas
 
-Las fases están en `game_data.py`, dentro de la lista `STAGES`.
+Las salas están en `game_data.py`, dentro de la lista `STAGES`. Las soluciones posibles están en `CASE_PROFILES`.
 
 Cada fase usa la dataclass `GameStage`:
 
 ```python
 GameStage(
     id=1,
-    title="Mundo ordinario",
+    room_name="Vestíbulo del Archivo",
+    title="La llegada bajo la tormenta",
     hero_journey_stage="Mundo ordinario",
     story="Texto narrativo",
-    valid_answers=["PUERTA"],
-    success_message="Mensaje al resolver",
-    reward_item="Objeto conseguido",
+    key_item="Llave conseguida",
+    options=[...],
     hints=["Pista 1", "Pista 2", "Pista 3"],
 )
 ```
@@ -236,8 +250,8 @@ Para añadir una nueva fase:
 
 1. Añade un nuevo `GameStage` al final de `STAGES`.
 2. Usa un `id` consecutivo.
-3. Incluye al menos una respuesta válida.
-4. No reveles la respuesta en las pistas salvo que sea la última pista y quieras hacerlo deliberadamente.
+3. Incluye tres opciones de investigación.
+4. Marca con `is_true_clue=True` la pista firme.
 5. Ejecuta los tests.
 
 ## Tests
@@ -246,7 +260,7 @@ Para añadir una nueva fase:
 pytest
 ```
 
-Cubren normalización de respuestas, cálculo de puntuación, avance de fase, respuestas correctas e incorrectas.
+Cubren normalización de respuestas, cálculo de puntuación, selección de caso, votaciones, lenguaje natural, avance por mayoría, pistas falsas y finalización del caso.
 
 ## Estructura
 
