@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramAPIError
 
 from config import get_settings
@@ -21,7 +22,11 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     settings = get_settings()
     database = Database(settings.database_path)
-    bot = Bot(token=settings.telegram_bot_token)
+    session = AiohttpSession()
+    if not settings.telegram_ssl_verify:
+        logger.warning("Verificación SSL de Telegram desactivada por TELEGRAM_SSL_VERIFY=false.")
+        session._connector_init["ssl"] = False
+    bot = Bot(token=settings.telegram_bot_token, session=session)
     dispatcher = Dispatcher()
     dispatcher.include_router(setup_handlers(database))
 
