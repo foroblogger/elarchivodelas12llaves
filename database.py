@@ -25,6 +25,10 @@ class GameState:
     finished_at: str | None
     completed: bool
     score: int
+    case_id: str | None = None
+    votes: dict[str, dict[str, str]] | None = None
+    discovered_clues: list[str] | None = None
+    false_clues: list[str] | None = None
 
 
 class Database:
@@ -57,6 +61,16 @@ class Database:
                 )
                 """
             )
+            self._ensure_column(conn, "case_id", "TEXT")
+            self._ensure_column(conn, "votes", "TEXT NOT NULL DEFAULT '{}'")
+            self._ensure_column(conn, "discovered_clues", "TEXT NOT NULL DEFAULT '[]'")
+            self._ensure_column(conn, "false_clues", "TEXT NOT NULL DEFAULT '[]'")
+
+    @staticmethod
+    def _ensure_column(conn: sqlite3.Connection, column: str, definition: str) -> None:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(games)").fetchall()}
+        if column not in columns:
+            conn.execute(f"ALTER TABLE games ADD COLUMN {column} {definition}")
 
     def get_game(self, chat_id: int) -> GameState | None:
         with self.connect() as conn:
@@ -71,9 +85,10 @@ class Database:
                 """
                 INSERT INTO games (
                     chat_id, game_active, current_stage, players, inventory, hints_used,
-                    wrong_answers, started_at, finished_at, completed, score
+                    wrong_answers, started_at, finished_at, completed, score, case_id,
+                    votes, discovered_clues, false_clues
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(chat_id) DO UPDATE SET
                     game_active = excluded.game_active,
                     current_stage = excluded.current_stage,
@@ -84,7 +99,11 @@ class Database:
                     started_at = excluded.started_at,
                     finished_at = excluded.finished_at,
                     completed = excluded.completed,
-                    score = excluded.score
+                    score = excluded.score,
+                    case_id = excluded.case_id,
+                    votes = excluded.votes,
+                    discovered_clues = excluded.discovered_clues,
+                    false_clues = excluded.false_clues
                 """,
                 self._state_to_tuple(state),
             )
@@ -114,6 +133,10 @@ class Database:
             finished_at=row["finished_at"],
             completed=bool(row["completed"]),
             score=row["score"],
+            case_id=row["case_id"],
+            votes=json.loads(row["votes"] or "{}"),
+            discovered_clues=json.loads(row["discovered_clues"] or "[]"),
+            false_clues=json.loads(row["false_clues"] or "[]"),
         )
 
     @staticmethod
@@ -130,4 +153,8 @@ class Database:
             state.finished_at,
             int(state.completed),
             state.score,
+            state.case_id,
+            json.dumps(state.votes or {}, ensure_ascii=False),
+            json.dumps(state.discovered_clues or [], ensure_ascii=False),
+            json.dumps(state.false_clues or [], ensure_ascii=False),
         )
