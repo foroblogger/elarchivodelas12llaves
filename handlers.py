@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiogram import Bot, Router
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
 from aiogram.types import Message
@@ -15,6 +16,23 @@ logger = logging.getLogger(__name__)
 router = Router()
 db: Database | None = None
 engine = GameEngine()
+
+ROOM_NAMES = [
+    "Vestíbulo del Archivo",
+    "Sala 01 - Mundo ordinario",
+    "Sala 02 - Llamada a la aventura",
+    "Sala 03 - Rechazo de la llamada",
+    "Sala 04 - Encuentro con el mentor",
+    "Sala 05 - Cruce del umbral",
+    "Sala 06 - Pruebas y aliados",
+    "Sala 07 - El Bucle Negro",
+    "Sala 08 - Cámara del Silencio",
+    "Sala 09 - Prueba suprema",
+    "Sala 10 - Recompensa",
+    "Sala 11 - Camino de regreso",
+    "Sala 12 - Decisión final",
+    "Ranking - Salón de los Héroes",
+]
 
 
 def setup_handlers(database: Database) -> Router:
@@ -39,6 +57,60 @@ def player_display_name(message: Message) -> str:
 async def is_group_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
     member = await bot.get_chat_member(chat_id, user_id)
     return member.status in {"creator", "administrator"}
+
+
+async def require_admin_message(message: Message, bot: Bot) -> bool:
+    user = message.from_user
+    if user is None or not await is_group_admin(bot, message.chat.id, user.id):
+        await message.answer("🔒 Solo un administrador del grupo puede usar este comando.")
+        return False
+    return True
+
+
+@router.message(Command("crear_salas"))
+async def create_rooms(message: Message, bot: Bot) -> None:
+    if not await require_admin_message(message, bot):
+        return
+
+    chat = await bot.get_chat(message.chat.id)
+    if not getattr(chat, "is_forum", False):
+        await message.answer(
+            "Para crear salas, primero activa los temas del grupo en Telegram "
+            "Ajustes del grupo > Temas."
+        )
+        return
+
+    created: list[str] = []
+    failed: list[str] = []
+    await message.answer("🛠️ El Archivista empieza a abrir las salas del Archivo...")
+    for room_name in ROOM_NAMES:
+        try:
+            await bot.create_forum_topic(chat_id=message.chat.id, name=room_name)
+            created.append(room_name)
+        except TelegramBadRequest as exc:
+            logger.warning("No se pudo crear la sala %s: %s", room_name, exc)
+            failed.append(room_name)
+        except TelegramForbiddenError as exc:
+            logger.warning("Permisos insuficientes creando salas en chat_id=%s: %s", message.chat.id, exc)
+            await message.answer(
+                "No tengo permisos suficientes para crear temas. "
+                "Hazme administrador y activa el permiso para gestionar temas."
+            )
+            return
+        except TelegramAPIError as exc:
+            logger.exception("Error de Telegram creando la sala %s", room_name)
+            failed.append(room_name)
+
+    response = [f"✅ Salas creadas: {len(created)}"]
+    if created:
+        response.extend(f"- {room}" for room in created)
+    if failed:
+        response.append("")
+        response.append(
+            "⚠️ Algunas salas no se pudieron crear. Si ya existían, Telegram puede haber rechazado duplicados:"
+        )
+        response.extend(f"- {room}" for room in failed)
+    await message.answer("\n".join(response))
 
 
 @router.message(Command("start_escape"))
@@ -165,13 +237,11 @@ async def resolve(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("reset_escape"))
 async def reset_escape(message: Message, bot: Bot) -> None:
-    user = message.from_user
-    if user is None or not await is_group_admin(bot, message.chat.id, user.id):
-        await message.answer("🔒 Solo un administrador del grupo puede reiniciar el Archivo.")
+    if not await require_admin_message(message, bot):
         return
 
     require_db().delete_game(message.chat.id)
-    logger.info("Partida reiniciada en chat_id=%s por user_id=%s", message.chat.id, user.id)
+    logger.info("Partida reiniciada en chat_id=%s", message.chat.id)
     await message.answer("♻️ El Archivo ha sido reiniciado. Usad /start_escape para empezar de nuevo.")
 
 
