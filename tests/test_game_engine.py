@@ -31,34 +31,97 @@ def test_final_score_over_sixty_minutes_penalty():
     assert calculate_final_score(state) == 80
 
 
-def test_correct_answer_advances_stage_and_updates_inventory():
+def test_game_starts_with_random_case_and_stage_message_options():
     engine = GameEngine()
     state = engine.create_game(chat_id=1)
+    message = engine.begin_game(state)
+
+    assert state.case_id
+    assert "Opciones de investigación" in message
+    assert "lenguaje natural" in message
+
+
+def test_vote_waits_until_majority():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana", "Luis", "Marta"]
     engine.begin_game(state)
 
-    result = engine.resolve(state, " puerta ")
+    result = engine.vote(state, "Ana", "A")
 
-    assert result.correct is True
-    assert state.current_stage == 2
-    assert "🗝️ Llave del Umbral" in state.inventory
-
-
-def test_detects_correct_answer_with_accents():
-    engine = GameEngine()
-    state = engine.create_game(chat_id=1)
-    state.current_stage = 10
-
-    assert engine.is_correct_answer(engine.current_stage(state), "unión")
-
-
-def test_incorrect_answer_penalizes_without_advancing():
-    engine = GameEngine()
-    state = engine.create_game(chat_id=1)
-    engine.begin_game(state)
-
-    result = engine.resolve(state, "llave")
-
-    assert result.correct is False
+    assert result.accepted is True
+    assert result.majority_reached is False
     assert state.current_stage == 1
-    assert state.wrong_answers == 1
-    assert state.score == 98
+
+
+def test_majority_vote_advances_stage_and_adds_key():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana", "Luis", "Marta"]
+    engine.begin_game(state)
+
+    engine.vote(state, "Ana", "A")
+    result = engine.vote(state, "Luis", "A")
+
+    assert result.majority_reached is True
+    assert state.current_stage == 2
+    assert "🗝️ Llave de hierro del Salón" in state.inventory
+    assert state.discovered_clues
+
+
+def test_natural_language_vote_matches_option_label():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana"]
+    engine.begin_game(state)
+
+    result = engine.vote_by_text(state, "Ana", "investiguemos el paraguas mojado")
+
+    assert result.majority_reached is True
+    assert state.current_stage == 2
+    assert "Barro rojo de la capilla" in state.discovered_clues
+
+
+def test_natural_language_vote_matches_final_accusation_name():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana"]
+    state.started_at = datetime.now(timezone.utc).isoformat()
+    state.current_stage = 12
+    correct_option = next(option for option in engine.options_for_stage(state) if option.is_true_clue)
+    accused_text = f"acuso a {correct_option.label}"
+
+    result = engine.vote_by_text(state, "Ana", accused_text)
+
+    assert result.completed is True
+    assert state.completed is True
+
+
+def test_false_vote_penalizes_but_still_advances():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana"]
+    engine.begin_game(state)
+
+    result = engine.vote(state, "Ana", "B")
+
+    assert result.majority_reached is True
+    assert state.current_stage == 2
+    assert state.score == 97
+    assert state.false_clues
+
+
+def test_final_vote_completes_game():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana"]
+    state.started_at = datetime.now(timezone.utc).isoformat()
+    state.current_stage = 12
+    correct = next(option.code for option in engine.options_for_stage(state) if option.is_true_clue)
+
+    result = engine.vote(state, "Ana", correct)
+
+    assert result.completed is True
+    assert state.completed is True
+    assert state.game_active is False
+    assert "Culpable:" in engine.final_message(state)
