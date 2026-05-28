@@ -29,6 +29,7 @@ class GameState:
     votes: dict[str, dict[str, str]] | None = None
     discovered_clues: list[str] | None = None
     false_clues: list[str] | None = None
+    expected_players: int | None = None
 
 
 class Database:
@@ -65,6 +66,7 @@ class Database:
             self._ensure_column(conn, "votes", "TEXT NOT NULL DEFAULT '{}'")
             self._ensure_column(conn, "discovered_clues", "TEXT NOT NULL DEFAULT '[]'")
             self._ensure_column(conn, "false_clues", "TEXT NOT NULL DEFAULT '[]'")
+            self._ensure_column(conn, "expected_players", "INTEGER")
 
     @staticmethod
     def _ensure_column(conn: sqlite3.Connection, column: str, definition: str) -> None:
@@ -86,9 +88,9 @@ class Database:
                 INSERT INTO games (
                     chat_id, game_active, current_stage, players, inventory, hints_used,
                     wrong_answers, started_at, finished_at, completed, score, case_id,
-                    votes, discovered_clues, false_clues
+                    votes, discovered_clues, false_clues, expected_players
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(chat_id) DO UPDATE SET
                     game_active = excluded.game_active,
                     current_stage = excluded.current_stage,
@@ -103,7 +105,8 @@ class Database:
                     case_id = excluded.case_id,
                     votes = excluded.votes,
                     discovered_clues = excluded.discovered_clues,
-                    false_clues = excluded.false_clues
+                    false_clues = excluded.false_clues,
+                    expected_players = excluded.expected_players
                 """,
                 self._state_to_tuple(state),
             )
@@ -137,6 +140,7 @@ class Database:
             votes=json.loads(row["votes"] or "{}"),
             discovered_clues=json.loads(row["discovered_clues"] or "[]"),
             false_clues=json.loads(row["false_clues"] or "[]"),
+            expected_players=row["expected_players"],
         )
 
     @staticmethod
@@ -157,4 +161,5 @@ class Database:
             json.dumps(state.votes or {}, ensure_ascii=False),
             json.dumps(state.discovered_clues or [], ensure_ascii=False),
             json.dumps(state.false_clues or [], ensure_ascii=False),
+            state.expected_players,
         )
