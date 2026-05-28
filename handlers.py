@@ -9,30 +9,13 @@ from aiogram.filters.command import CommandObject
 from aiogram.types import Message
 
 from database import Database
-from game_engine import GameEngine, rank_for_score
+from game_engine import GameEngine, ROOM_NAMES, rank_for_score
 
 
 logger = logging.getLogger(__name__)
 router = Router()
 db: Database | None = None
 engine = GameEngine()
-
-ROOM_NAMES = [
-    "Vestíbulo del Archivo",
-    "Sala 01 - Mundo ordinario",
-    "Sala 02 - Llamada a la aventura",
-    "Sala 03 - Rechazo de la llamada",
-    "Sala 04 - Encuentro con el mentor",
-    "Sala 05 - Cruce del umbral",
-    "Sala 06 - Pruebas y aliados",
-    "Sala 07 - El Bucle Negro",
-    "Sala 08 - Cámara del Silencio",
-    "Sala 09 - Prueba suprema",
-    "Sala 10 - Recompensa",
-    "Sala 11 - Camino de regreso",
-    "Sala 12 - Decisión final",
-    "Ranking - Salón de los Héroes",
-]
 
 
 def setup_handlers(database: Database) -> Router:
@@ -126,7 +109,8 @@ async def start_escape(message: Message) -> None:
     logger.info("Nueva partida creada en chat_id=%s", message.chat.id)
     await message.answer(
         "🗄️ El Archivo de las Doce Llaves despierta.\n\n"
-        "Partida creada. Que los jugadores usen /unirse y luego /comenzar."
+        "Caso abierto: asesinato de Javi, heredero de la familia Valcárcel.\n\n"
+        "Que los detectives digan 'me uno' y luego 'empezamos'."
     )
 
 
@@ -135,7 +119,7 @@ async def join_game(message: Message) -> None:
     database = require_db()
     state = database.get_game(message.chat.id)
     if not state or not state.game_active:
-        await message.answer("Aún no hay una partida activa. Usad /start_escape para abrir el Archivo.")
+        await message.answer("Aún no hay una partida activa. Decid 'abrir caso' para abrir el Archivo.")
         return
     if state.started_at is not None:
         await message.answer("La puerta ya se ha cerrado tras el grupo. La partida está en marcha.")
@@ -145,7 +129,7 @@ async def join_game(message: Message) -> None:
     added = engine.add_player(state, name)
     database.save_game(state)
     if added:
-        await message.answer(f"✅ {name} se une a la Compañía de las Doce Llaves.")
+        await message.answer(f"✅ {name} se une al equipo de detectives.")
     else:
         await message.answer(f"✅ {name} ya forma parte de la partida.")
 
@@ -155,13 +139,13 @@ async def begin_game(message: Message) -> None:
     database = require_db()
     state = database.get_game(message.chat.id)
     if not state or not state.game_active:
-        await message.answer("No hay partida activa. Usad /start_escape primero.")
+        await message.answer("No hay partida activa. Decid 'abrir caso' primero.")
         return
     if state.started_at is not None:
-        await message.answer("La aventura ya ha comenzado. Usad /estado para consultar la fase actual.")
+        await message.answer("La investigación ya ha comenzado. Decid 'cómo vamos' para consultar la sala actual.")
         return
     if not state.players:
-        await message.answer("Antes de comenzar, al menos un jugador debe usar /unirse.")
+        await message.answer("Antes de comenzar, al menos un detective debe decir 'me uno'.")
         return
 
     story = engine.begin_game(state)
@@ -196,7 +180,7 @@ async def hint(message: Message) -> None:
         await message.answer("No hay partida activa para pedir una pista.")
         return
     if state.started_at is None:
-        await message.answer("La aventura todavía no ha comenzado. Usad /comenzar.")
+        await message.answer("La investigación todavía no ha comenzado. Decid 'empezamos'.")
         return
 
     hint_text = engine.get_hint(state)
@@ -205,34 +189,42 @@ async def hint(message: Message) -> None:
     await message.answer(hint_text)
 
 
-@router.message(Command("resolver"))
-async def resolve(message: Message, command: CommandObject) -> None:
+@router.message(Command("votar"))
+async def vote(message: Message, command: CommandObject) -> None:
     database = require_db()
     state = database.get_game(message.chat.id)
     if not state or not state.game_active:
-        await message.answer("No hay partida activa. El Archivo permanece dormido.")
+        await message.answer("No hay una investigación activa. Decid 'abrir caso'.")
         return
     if state.started_at is None:
-        await message.answer("Aún no podéis resolver: primero usad /comenzar.")
+        await message.answer("Aún no podéis votar: primero decid 'empezamos'.")
         return
 
-    answer = (command.args or "").strip()
-    if not answer:
-        await message.answer("Escribid la respuesta así: /resolver vuestra respuesta")
+    option = (command.args or "").strip()
+    if not option:
+        await message.answer("Podéis votar diciendo 'voto A' o mencionando la opción que queréis investigar.")
         return
 
-    result = engine.resolve(state, answer)
+    result = engine.vote_by_text(state, player_display_name(message), option)
     database.save_game(state)
     logger.info(
-        "Respuesta en chat_id=%s correct=%s stage=%s score=%s",
+        "Voto en chat_id=%s accepted=%s majority=%s stage=%s score=%s",
         message.chat.id,
-        result.correct,
+        result.accepted,
+        result.majority_reached,
         state.current_stage,
         state.score,
     )
     await message.answer(result.message)
     if result.completed:
         await message.answer(engine.final_message(state))
+
+
+@router.message(Command("resolver"))
+async def resolve(message: Message, command: CommandObject) -> None:
+    await message.answer(
+        "Esta versión del caso se juega hablando: 'investiguemos la vitrina', 'voto A' o 'acuso a Elena'."
+    )
 
 
 @router.message(Command("reset_escape"))
@@ -242,7 +234,7 @@ async def reset_escape(message: Message, bot: Bot) -> None:
 
     require_db().delete_game(message.chat.id)
     logger.info("Partida reiniciada en chat_id=%s", message.chat.id)
-    await message.answer("♻️ El Archivo ha sido reiniciado. Usad /start_escape para empezar de nuevo.")
+    await message.answer("♻️ El Archivo ha sido reiniciado. Decid 'abrir caso' para empezar de nuevo.")
 
 
 @router.message(Command("ranking"))
@@ -268,3 +260,59 @@ async def ranking(message: Message) -> None:
         players = ", ".join(game.players) if game.players else f"Chat {game.chat_id}"
         lines.append(f"{index}. {players} - {game.score} pts - {rank_for_score(game.score)}")
     await message.answer("\n".join(lines))
+
+
+@router.message()
+async def natural_language(message: Message) -> None:
+    if not message.text or message.text.startswith("/"):
+        return
+
+    text = message.text.strip()
+    normalized = text.casefold()
+    database = require_db()
+    state = database.get_game(message.chat.id)
+
+    if any(phrase in normalized for phrase in ["crear partida", "empezar partida", "abrir caso", "nuevo caso"]):
+        await start_escape(message)
+        return
+
+    if any(phrase in normalized for phrase in ["me uno", "quiero unirme", "me apunto", "soy detective"]):
+        await join_game(message)
+        return
+
+    if any(phrase in normalized for phrase in ["comenzar", "empezamos", "empezar", "iniciar", "abrir la mansión"]):
+        await begin_game(message)
+        return
+
+    if any(phrase in normalized for phrase in ["estado", "cómo vamos", "como vamos", "situación", "situacion"]):
+        await status(message)
+        return
+
+    if any(phrase in normalized for phrase in ["inventario", "llaves", "qué tenemos", "que tenemos"]):
+        await inventory(message)
+        return
+
+    if any(phrase in normalized for phrase in ["pista", "ayuda", "orientación", "orientacion"]):
+        await hint(message)
+        return
+
+    if not state or not state.game_active or state.started_at is None:
+        return
+
+    if looks_like_vote(text):
+        result = engine.vote_by_text(state, player_display_name(message), text)
+        database.save_game(state)
+        await message.answer(result.message)
+        if result.completed:
+            await message.answer(engine.final_message(state))
+
+
+def looks_like_vote(text: str) -> bool:
+    normalized = text.casefold().strip()
+    vote_words = [
+        "voto", "votamos", "elijo", "elegimos", "escojo", "investiguemos",
+        "investigar", "revisar", "examinar", "acuso", "acusamos",
+    ]
+    if normalized in {"a", "b", "c"}:
+        return True
+    return any(word in normalized for word in vote_words)
