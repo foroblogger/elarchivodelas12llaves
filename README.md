@@ -28,6 +28,7 @@ pista - Pedir una pista
 resolver - Resolver la fase actual
 reset_escape - Reiniciar la partida
 ranking - Ver ranking o resultado final
+crear_salas - Crear las salas del grupo
 ```
 
 ## Configurar el entorno
@@ -88,13 +89,46 @@ Si el token está bien configurado, verás logs en consola indicando que el bot 
 1. Abre tu grupo de Telegram.
 2. Añade el bot como miembro.
 3. Dale permiso para leer y enviar mensajes.
-4. Para usar `/reset_escape`, el bot debe poder consultar administradores del grupo. En grupos normales basta con que el bot esté dentro; si hay restricciones fuertes, hazlo administrador.
+4. Para usar `/reset_escape` y `/crear_salas`, el bot debe poder consultar administradores del grupo. En grupos normales basta con que el bot esté dentro; si hay restricciones fuertes, hazlo administrador.
 
 Permisos recomendados:
 
 - Enviar mensajes.
 - Leer mensajes/comandos.
 - Ver miembros del grupo.
+- Gestionar temas.
+
+## Crear salas del escape room
+
+Para que el bot cree las salas automáticamente:
+
+1. Convierte el grupo en foro activando los temas desde los ajustes del grupo.
+2. Haz administrador al bot.
+3. Dale permiso para gestionar temas.
+4. Escribe en el grupo:
+
+```text
+/crear_salas
+```
+
+El bot intentará crear:
+
+```text
+Vestíbulo del Archivo
+Sala 01 - Mundo ordinario
+Sala 02 - Llamada a la aventura
+Sala 03 - Rechazo de la llamada
+Sala 04 - Encuentro con el mentor
+Sala 05 - Cruce del umbral
+Sala 06 - Pruebas y aliados
+Sala 07 - El Bucle Negro
+Sala 08 - Cámara del Silencio
+Sala 09 - Prueba suprema
+Sala 10 - Recompensa
+Sala 11 - Camino de regreso
+Sala 12 - Decisión final
+Ranking - Salón de los Héroes
+```
 
 ## Iniciar una partida
 
