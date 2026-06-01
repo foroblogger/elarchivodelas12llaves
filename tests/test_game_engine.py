@@ -41,6 +41,22 @@ def test_game_starts_with_random_case_and_stage_message_options():
     assert "lenguaje natural" in message
 
 
+def test_expected_players_gate_can_auto_begin():
+    engine = GameEngine()
+    state = engine.create_game(chat_id=1)
+    state.players = ["Ana"]
+
+    response = engine.set_expected_players(state, 2)
+
+    assert state.expected_players == 2
+    assert "Faltan 1" in response
+    assert engine.should_auto_begin(state) is False
+
+    state.players.append("Luis")
+
+    assert engine.should_auto_begin(state) is True
+
+
 def test_vote_waits_until_majority():
     engine = GameEngine()
     state = engine.create_game(chat_id=1)
