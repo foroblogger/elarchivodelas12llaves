@@ -93,11 +93,7 @@ def rank_for_score(score: int) -> str:
 
 
 class GameEngine:
-    def __init__(
-        self,
-        stages: list[GameStage] | None = None,
-        cases: list[CaseProfile] | None = None,
-    ) -> None:
+    def __init__(self, stages: list[GameStage] | None = None, cases: list[CaseProfile] | None = None) -> None:
         self.stages = stages or STAGES
         self.cases = cases or CASE_PROFILES
 
@@ -119,6 +115,7 @@ class GameEngine:
             votes={},
             discovered_clues=[],
             false_clues=[],
+            expected_players=None,
         )
 
     def add_player(self, state: GameState, player_name: str) -> bool:
@@ -132,6 +129,26 @@ class GameEngine:
         if state.started_at is None:
             state.started_at = utc_now_iso()
         return self.stage_message(state)
+
+    def set_expected_players(self, state: GameState, count: int) -> str:
+        state.expected_players = max(1, count)
+        joined = len(state.players)
+        if joined >= state.expected_players:
+            return self.begin_game(state)
+        remaining = state.expected_players - joined
+        return (
+            f"Perfecto. Entonces sois {state.expected_players} detectives.\n\n"
+            f"Ahora necesito que cada detective diga 'me uno'. "
+            f"Faltan {remaining} por presentarse y, cuando estéis todos, empiezo a narrar la primera sala."
+        )
+
+    def should_auto_begin(self, state: GameState) -> bool:
+        return (
+            state.game_active
+            and state.started_at is None
+            and state.expected_players is not None
+            and len(state.players) >= state.expected_players
+        )
 
     def current_stage(self, state: GameState) -> GameStage:
         return self.stages[state.current_stage - 1]
@@ -150,9 +167,7 @@ class GameEngine:
 
     def stage_message(self, state: GameState) -> str:
         stage = self.current_stage(state)
-        options = "\n".join(
-            f"{option.code}) {option.label}" for option in self.options_for_stage(state)
-        )
+        options = "\n".join(f"{option.code}) {option.label}" for option in self.options_for_stage(state))
         return f"""{stage.story}
 
 Opciones de investigación:
@@ -162,41 +177,24 @@ Podéis votar hablando en lenguaje natural, por ejemplo: 'investiguemos el parag
 
     def vote(self, state: GameState, player_name: str, option_code: str) -> VoteResult:
         if player_name not in state.players:
-            return VoteResult(
-                False,
-                "Antes de votar, únete a la investigación diciendo 'me uno'.",
-                state,
-            )
-
+            return VoteResult(False, "Antes de votar, únete a la investigación diciendo 'me uno'.", state)
         option = self._find_option(state, option_code)
         if option is None:
             return VoteResult(False, "Esa opción no existe. Decid A, B, C o mencionad la opción.", state)
-
         stage_key = str(state.current_stage)
         state.votes = state.votes or {}
         state.votes.setdefault(stage_key, {})
         state.votes[stage_key][player_name] = option.code
-
         counts = self.vote_counts(state)
-        needed = self.majority_needed(state)
-        if counts[option.code] < needed:
-            return VoteResult(
-                True,
-                self.vote_progress_message(state, option.code),
-                state,
-            )
-
+        if counts[option.code] < self.majority_needed(state):
+            return VoteResult(True, self.vote_progress_message(state, option.code), state)
         return self._resolve_majority(state, option)
 
     def vote_by_text(self, state: GameState, player_name: str, text: str) -> VoteResult:
         option = self._find_option_by_text(state, text)
         if option is None:
             options = ", ".join(f"{opt.code}) {opt.label}" for opt in self.options_for_stage(state))
-            return VoteResult(
-                False,
-                f"No he entendido la opción. Podéis decir algo como 'voto A' o mencionar una opción:\n{options}",
-                state,
-            )
+            return VoteResult(False, f"No he entendido la opción. Podéis decir algo como 'voto A' o mencionar una opción:\n{options}", state)
         return self.vote(state, player_name, option.code)
 
     def _resolve_majority(self, state: GameState, option: VoteOption) -> VoteResult:
@@ -210,13 +208,10 @@ Podéis votar hablando en lenguaje natural, por ejemplo: 'investiguemos el parag
             if option.clue and option.clue not in state.false_clues:
                 state.false_clues.append(option.clue)
             state.score = max(0, state.score - FALSE_LEAD_PENALTY)
-
         if stage.key_item not in state.inventory:
             state.inventory.append(stage.key_item)
-
         if stage.id == len(self.stages):
             return self._finish_game(state, option)
-
         result_type = "Pista firme" if option.is_true_clue else "Pista dudosa"
         message = f"""{option.result}
 
@@ -266,21 +261,12 @@ La mayoría ha señalado:
         for option in options:
             if re.search(rf"\b{re.escape(normalize_answer(option.code))}\b", normalized):
                 return option
-
-        best_option: VoteOption | None = None
+        best_option = None
         best_score = 0
-        ignored = {
-            "VOTO", "VOTAR", "ELIJO", "ESCOJO", "QUIERO", "INVESTIGAR", "REVISAR",
-            "EXAMINAR", "ACUSAR", "ACUSO", "A", "AL", "LA", "EL", "LOS", "LAS",
-            "DE", "DEL", "POR", "QUE",
-        }
+        ignored = {"VOTO", "VOTAR", "ELIJO", "ESCOJO", "QUIERO", "INVESTIGAR", "REVISAR", "EXAMINAR", "ACUSAR", "ACUSO", "A", "AL", "LA", "EL", "LOS", "LAS", "DE", "DEL", "POR", "QUE"}
         text_words = {word for word in normalized.split() if word not in ignored and len(word) > 2}
         for option in options:
-            label_words = {
-                word
-                for word in normalize_answer(option.label).split()
-                if word not in ignored and len(word) > 2
-            }
+            label_words = {word for word in normalize_answer(option.label).split() if word not in ignored and len(word) > 2}
             score = len(text_words & label_words)
             if score > best_score:
                 best_option = option
@@ -300,9 +286,7 @@ La mayoría ha señalado:
 
     def vote_progress_message(self, state: GameState, voted_code: str | None = None) -> str:
         counts = self.vote_counts(state)
-        needed = self.majority_needed(state)
-        lines = [f"🗳️ Voto registrado{f' para {voted_code}' if voted_code else ''}."]
-        lines.append(f"Mayoría necesaria: {needed}")
+        lines = [f"🗳️ Voto registrado{f' para {voted_code}' if voted_code else ''}.", f"Mayoría necesaria: {self.majority_needed(state)}"]
         lines.extend(f"{code}: {count}" for code, count in counts.items())
         return "\n".join(lines)
 
